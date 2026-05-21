@@ -46,18 +46,21 @@ export const PHOTO_SIZES: Record<string, PhotoSize> = {
   twoInch: {
     widthMm: 35,
     heightMm: 45,
-    widthPx: 413,
-    heightPx: 531,
+    widthPx: 435,
+    heightPx: 555,
     label: '兩吋',
   },
   oneInch: {
     widthMm: 25,
     heightMm: 30,
-    widthPx: 295,
-    heightPx: 354,
+    widthPx: 354,
+    heightPx: 437,
     label: '一吋',
   },
 };
+
+// 照片之間框線寬度
+export const GRID_BORDER = 3;
 
 // 4x6 吋 @300DPI
 export const PRINT_WIDTH = 1200;
