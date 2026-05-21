@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>證件照產生器 - ID Photo Generator</title>
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>📷 證件照產生器</h1>
+    </header>
+
+    <div class="main-layout">
+      <!-- 左側控制面板 -->
+      <aside class="control-panel">
+        <!-- 照片類型選擇 -->
+        <section class="panel-section">
+          <h2>照片類型</h2>
+          <label class="radio-label">
+            <input type="radio" name="photoType" value="twoInchHead" checked />
+            兩吋大頭照 (35×45mm)
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="photoType" value="twoInchHalf" />
+            兩吋半身照 (35×45mm)
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="photoType" value="oneInchHalf" />
+            一吋半身照 (25×30mm)
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="photoType" value="combo" />
+            兩吋+一吋 組合
+          </label>
+        </section>
+
+        <!-- 照片匯入 -->
+        <section class="panel-section">
+          <h2>匯入照片</h2>
+          <label class="file-upload-btn" for="fileInput">選擇照片</label>
+          <input type="file" id="fileInput" accept="image/*" />
+          <p class="file-name" id="fileName">尚未選擇檔案</p>
+        </section>
+
+        <!-- 美膚/打亮/亮度 -->
+        <section class="panel-section" id="beautySection">
+          <h2>影像調整</h2>
+          <div class="slider-group">
+            <label>簡易美膚</label>
+            <input type="range" id="smoothSlider" min="0" max="10" value="0" step="1" />
+            <span class="slider-value" id="smoothValue">0</span>
+          </div>
+          <div class="slider-group">
+            <label>簡易打亮</label>
+            <input type="range" id="brightenSlider" min="0" max="50" value="0" step="1" />
+            <span class="slider-value" id="brightenValue">0</span>
+          </div>
+          <div class="slider-group">
+            <label>亮度調整</label>
+            <input type="range" id="brightnessSlider" min="80" max="150" value="100" step="1" />
+            <span class="slider-value" id="brightnessValue">100%</span>
+          </div>
+          <button id="resetBeauty" class="btn btn-secondary">回復原狀</button>
+        </section>
+
+        <!-- 匯出按鈕 -->
+        <section class="panel-section">
+          <h2>匯出</h2>
+          <button id="exportPrint" class="btn btn-primary">匯出便利商店列印圖</button>
+          <button id="exportSingle" class="btn btn-primary">匯出單張證件照</button>
+        </section>
+      </aside>
+
+      <!-- 右側預覽區 -->
+      <main class="preview-area">
+        <div class="canvas-container" id="canvasContainer">
+          <canvas id="photoCanvas"></canvas>
+          <canvas id="overlayCanvas"></canvas>
+          <div class="placeholder" id="placeholder">
+            <p>請先選擇照片類型，再上傳照片</p>
+          </div>
+        </div>
+
+        <!-- 底部縮放控制 -->
+        <div class="zoom-controls" id="zoomControls">
+          <button class="btn btn-small" id="zoomOut">−</button>
+          <input type="range" id="zoomSlider" min="10" max="300" value="100" step="1" />
+          <button class="btn btn-small" id="zoomIn">+</button>
+          <span id="zoomValue">100%</span>
+        </div>
+
+        <!-- 單張預覽 -->
+        <div class="single-preview" id="singlePreview">
+          <h3>單張預覽</h3>
+          <canvas id="previewCanvas"></canvas>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
