@@ -2,8 +2,6 @@ import {
   EditorState,
   PhotoType,
   PHOTO_SIZES,
-  HEAD_GUIDE,
-  HALF_BODY_GUIDE,
 } from './types';
 
 export class PhotoEditor {
@@ -32,6 +30,10 @@ export class PhotoEditor {
   private cropFrameW = 0;
   private cropFrameH = 0;
 
+  // Guide overlay images
+  private headGuideImg: HTMLImageElement | null = null;
+  private halfBodyGuideImg: HTMLImageElement | null = null;
+
   constructor(private state: EditorState) {
     this.photoCanvas = document.getElementById('photoCanvas') as HTMLCanvasElement;
     this.overlayCanvas = document.getElementById('overlayCanvas') as HTMLCanvasElement;
@@ -44,6 +46,7 @@ export class PhotoEditor {
     this.zoomControls = document.getElementById('zoomControls')!;
     this.singlePreview = document.getElementById('singlePreview')!;
 
+    this.loadGuideImages();
     this.bindDragEvents();
   }
 
@@ -51,6 +54,14 @@ export class PhotoEditor {
     const type = this.state.photoType;
     if (type === PhotoType.OneInchHalf) return PHOTO_SIZES.oneInch;
     return PHOTO_SIZES.twoInch;
+  }
+
+  private loadGuideImages(): void {
+    this.headGuideImg = new Image();
+    this.headGuideImg.src = '/大頭照參考線.png';
+
+    this.halfBodyGuideImg = new Image();
+    this.halfBodyGuideImg.src = '/半身照參考線.png';
   }
 
   onTypeChange(): void {
@@ -218,73 +229,15 @@ export class PhotoEditor {
 
     ctx.clearRect(0, 0, w, h);
 
-    // Draw crop frame border
-    ctx.strokeStyle = 'rgba(0, 180, 255, 0.8)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([8, 4]);
-    ctx.strokeRect(1, 1, w - 2, h - 2);
-    ctx.setLineDash([]);
+    // Pick the correct guide image based on photo type
+    const guideImg =
+      this.state.photoType === PhotoType.TwoInchHead
+        ? this.headGuideImg
+        : this.halfBodyGuideImg;
 
-    // Draw guide lines based on photo type
-    const type = this.state.photoType;
-    ctx.strokeStyle = 'rgba(0, 200, 100, 0.6)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
-
-    if (type === PhotoType.TwoInchHead) {
-      // Head mode: head top + chin guidelines
-      const topY = h * HEAD_GUIDE.topRatio;
-      const chinY = h * HEAD_GUIDE.chinRatio;
-
-      ctx.beginPath();
-      ctx.moveTo(0, topY);
-      ctx.lineTo(w, topY);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(0, chinY);
-      ctx.lineTo(w, chinY);
-      ctx.stroke();
-
-      // Draw head oval guide
-      ctx.strokeStyle = 'rgba(0, 200, 100, 0.4)';
-      const centerX = w / 2;
-      const centerY = (topY + chinY) / 2;
-      const radiusX = w * 0.28;
-      const radiusY = (chinY - topY) / 2;
-      ctx.beginPath();
-      ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Labels
-      ctx.setLineDash([]);
-      ctx.fillStyle = 'rgba(0, 200, 100, 0.8)';
-      ctx.font = `${Math.round(12 * (window.devicePixelRatio || 1))}px sans-serif`;
-      ctx.fillText('頭頂', 4, topY - 4);
-      ctx.fillText('下巴', 4, chinY - 4);
-    } else {
-      // Half body mode: top + shoulder guidelines
-      const topY = h * HALF_BODY_GUIDE.topRatio;
-      const shoulderY = h * HALF_BODY_GUIDE.shoulderRatio;
-
-      ctx.beginPath();
-      ctx.moveTo(0, topY);
-      ctx.lineTo(w, topY);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(0, shoulderY);
-      ctx.lineTo(w, shoulderY);
-      ctx.stroke();
-
-      ctx.setLineDash([]);
-      ctx.fillStyle = 'rgba(0, 200, 100, 0.8)';
-      ctx.font = `${Math.round(12 * (window.devicePixelRatio || 1))}px sans-serif`;
-      ctx.fillText('頭頂', 4, topY - 4);
-      ctx.fillText('肩膀', 4, shoulderY - 4);
+    if (guideImg && guideImg.complete && guideImg.naturalWidth > 0) {
+      ctx.drawImage(guideImg, 0, 0, w, h);
     }
-
-    ctx.setLineDash([]);
   }
 
   private drawPreview(): void {
