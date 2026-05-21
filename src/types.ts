@@ -95,8 +95,8 @@ export const COMBO_LAYOUT: ComboLayoutConfig = {
 };
 
 // 品牌標注
-export const BRAND_TEXT = '我要證件照  1.2';
-export const BRAND_SUB = '簡單好用又省錢';
+export const BRAND_TEXT = '證件照';
+export const BRAND_SUB = '輸出';
 
 // 裁切框比例（頭頂/下巴/肩膀參考線比例）
 export const HEAD_GUIDE = {

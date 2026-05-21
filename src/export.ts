@@ -202,16 +202,16 @@ export class ExportManager {
     // Draw 3px border lines between photos
     this.drawGridBorders(ctx, startX, startY, totalW, totalH, cols, rows, photoW, photoH, border);
 
-    // Draw label
+    // Draw label at bottom-left corner
     const labelText = isOneInch ? '一吋半身照' : this.getLabelForType(type);
     ctx.fillStyle = '#333';
-    ctx.font = '28px sans-serif';
-    ctx.fillText(labelText, startX + 40, canvasH - 22);
+    ctx.font = '24px sans-serif';
+    ctx.fillText(labelText, 12, canvasH - 10);
 
     // Draw brand bar
     this.drawBrandHorizontal(ctx, canvasW, canvasH);
 
-    this.downloadCanvas(canvas, `證件照_${layout.label}_列印圖.jpg`);
+    this.downloadCanvas(canvas, `證件照_${layout.label}_列印圖.png`);
   }
 
   private exportCombo(): void {
@@ -265,16 +265,16 @@ export class ExportManager {
 
     this.drawGridBorders(ctx, rightStartX, rightStartY, rightTotalW, rightTotalH, combo.right.cols, combo.right.rows, rightPhotoW, rightPhotoH, border);
 
-    // Labels
+    // Labels at bottom-left corner
     ctx.fillStyle = '#333';
-    ctx.font = '28px sans-serif';
-    ctx.fillText('兩吋半身照', leftStartX + 40, canvasH - 22);
-    ctx.fillText('一吋半身照', rightStartX + rightTotalW / 2 - 50, rightStartY + rightTotalH + 40);
+    ctx.font = '24px sans-serif';
+    ctx.fillText('兩吋半身照', 12, canvasH - 10);
+    ctx.fillText('一吋半身照', rightStartX, canvasH - 10);
 
     // Brand bar
     this.drawBrandHorizontal(ctx, canvasW, canvasH);
 
-    this.downloadCanvas(canvas, '證件照_兩吋加一吋_列印圖.jpg');
+    this.downloadCanvas(canvas, '證件照_兩吋加一吋_列印圖.png');
   }
 
   /**
@@ -327,25 +327,14 @@ export class ExportManager {
     canvasW: number,
     canvasH: number
   ): void {
-    const brandW = 320;
-    const brandH = 40;
-    const bx = canvasW / 2 + 80;
-    const by = canvasH - 52;
-
-    // Orange rounded rect background
+    // Position at the very bottom-right corner, outside photo grid
     ctx.save();
+    ctx.textAlign = 'right';
     ctx.fillStyle = '#e87530';
-    this.roundRect(ctx, bx, by, brandW, brandH, 4);
-    ctx.fill();
-
-    // Main text
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 22px sans-serif';
-    ctx.fillText(BRAND_TEXT, bx + 12, by + 28);
-
-    // Sub text
-    ctx.font = '14px sans-serif';
-    ctx.fillText(BRAND_SUB, bx + 190, by + 28);
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillText(BRAND_TEXT, canvasW - 12, canvasH - 22);
+    ctx.font = '12px sans-serif';
+    ctx.fillText(BRAND_SUB, canvasW - 12, canvasH - 6);
     ctx.restore();
   }
 
@@ -356,27 +345,6 @@ export class ExportManager {
       case PhotoType.OneInchHalf: return '一吋半身照';
       case PhotoType.Combo: return '兩吋+一吋';
     }
-  }
-
-  private roundRect(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    r: number
-  ): void {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
   }
 
   exportSingle(): void {
@@ -397,7 +365,7 @@ export class ExportManager {
     this.renderPhoto(ctx, 0, 0, photoSize.widthPx, photoSize.heightPx);
 
     const label = this.getLabelForType(type);
-    this.downloadCanvas(canvas, `證件照_${label}_單張.jpg`);
+    this.downloadCanvas(canvas, `證件照_${label}_單張.png`);
   }
 
   private downloadCanvas(canvas: HTMLCanvasElement, filename: string): void {
@@ -413,8 +381,7 @@ export class ExportManager {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       },
-      'image/jpeg',
-      0.95
+      'image/png'
     );
   }
 }
