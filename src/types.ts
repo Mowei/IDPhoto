@@ -1,8 +1,9 @@
 export enum PhotoType {
+  OneInch = 'oneInch',
   TwoInchHead = 'twoInchHead',
   TwoInchHalf = 'twoInchHalf',
-  OneInchHalf = 'oneInchHalf',
-  Combo = 'combo',
+  ThreeByFour = 'threeByFour',
+  FiveByFive = 'fiveByFive',
 }
 
 export interface PhotoSize {
@@ -14,19 +15,9 @@ export interface PhotoSize {
 }
 
 export interface LayoutConfig {
-  canvasWidth: number;
-  canvasHeight: number;
   cols: number;
   rows: number;
   photoSize: PhotoSize;
-  label: string;
-}
-
-export interface ComboLayoutConfig {
-  canvasWidth: number;
-  canvasHeight: number;
-  left: { cols: number; rows: number; photoSize: PhotoSize };
-  right: { cols: number; rows: number; photoSize: PhotoSize };
   label: string;
 }
 
@@ -41,57 +32,84 @@ export interface EditorState {
   brightness: number;
 }
 
-// 照片尺寸常數 @300DPI
+// 照片尺寸常數 @300DPI (px = cm / 2.54 * 300)
 export const PHOTO_SIZES: Record<string, PhotoSize> = {
-  twoInch: {
+  oneInch: {
+    widthMm: 28,
+    heightMm: 35,
+    widthPx: 331,
+    heightPx: 413,
+    label: '1吋大頭貼',
+  },
+  twoInchHead: {
     widthMm: 35,
     heightMm: 45,
-    widthPx: 435,
-    heightPx: 555,
-    label: '兩吋',
+    widthPx: 413,
+    heightPx: 531,
+    label: '2吋大頭照',
   },
-  oneInch: {
-    widthMm: 25,
-    heightMm: 30,
+  twoInchHalf: {
+    widthMm: 42,
+    heightMm: 47,
+    widthPx: 496,
+    heightPx: 555,
+    label: '2吋半身照',
+  },
+  threeByFour: {
+    widthMm: 30,
+    heightMm: 40,
     widthPx: 354,
-    heightPx: 437,
-    label: '一吋',
+    heightPx: 472,
+    label: '3×4大頭照',
+  },
+  fiveByFive: {
+    widthMm: 50,
+    heightMm: 50,
+    widthPx: 591,
+    heightPx: 591,
+    label: '5×5大頭照',
   },
 };
 
 // 照片之間框線寬度
 export const GRID_BORDER = 3;
 
-// 4x6 吋 @300DPI
+// 4×6 吋 @300DPI (直式)
 export const PRINT_WIDTH = 1200;
 export const PRINT_HEIGHT = 1800;
 
-// 版面配置
+// 版面配置 (直式 1200×1800)
 export const LAYOUTS: Record<string, LayoutConfig> = {
-  twoInch: {
-    canvasWidth: PRINT_WIDTH,
-    canvasHeight: PRINT_HEIGHT,
-    cols: 3,
-    rows: 2,
-    photoSize: PHOTO_SIZES.twoInch,
-    label: '兩吋',
-  },
   oneInch: {
-    canvasWidth: PRINT_HEIGHT, // 橫式 1800×1200
-    canvasHeight: PRINT_WIDTH,
-    cols: 4,
-    rows: 2,
+    cols: 3,
+    rows: 4,
     photoSize: PHOTO_SIZES.oneInch,
-    label: '一吋',
+    label: '1吋大頭貼',
   },
-};
-
-export const COMBO_LAYOUT: ComboLayoutConfig = {
-  canvasWidth: PRINT_WIDTH,
-  canvasHeight: PRINT_HEIGHT,
-  left: { cols: 2, rows: 2, photoSize: PHOTO_SIZES.twoInch },
-  right: { cols: 2, rows: 2, photoSize: PHOTO_SIZES.oneInch },
-  label: '兩吋+一吋',
+  twoInchHead: {
+    cols: 2,
+    rows: 3,
+    photoSize: PHOTO_SIZES.twoInchHead,
+    label: '2吋大頭照',
+  },
+  twoInchHalf: {
+    cols: 2,
+    rows: 3,
+    photoSize: PHOTO_SIZES.twoInchHalf,
+    label: '2吋半身照',
+  },
+  threeByFour: {
+    cols: 3,
+    rows: 3,
+    photoSize: PHOTO_SIZES.threeByFour,
+    label: '3×4大頭照',
+  },
+  fiveByFive: {
+    cols: 2,
+    rows: 2,
+    photoSize: PHOTO_SIZES.fiveByFive,
+    label: '5×5大頭照',
+  },
 };
 
 // 品牌標注

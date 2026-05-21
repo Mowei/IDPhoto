@@ -1,10 +1,13 @@
 import {
   EditorState,
   PhotoType,
+  PhotoSize,
   PHOTO_SIZES,
   LAYOUTS,
-  COMBO_LAYOUT,
+  LayoutConfig,
   GRID_BORDER,
+  PRINT_WIDTH,
+  PRINT_HEIGHT,
   BRAND_TEXT,
   BRAND_SUB,
 } from './types';
@@ -81,73 +84,24 @@ export class ExportManager {
     ctx.restore();
   }
 
-  private renderPhotoOneInch(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    targetW: number,
-    targetH: number
-  ): void {
-    if (!this.state.image) return;
-
-    const img = this.state.image;
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(x, y, targetW, targetH);
-    ctx.clip();
-
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(x, y, targetW, targetH);
-
-    const baseScale = Math.max(targetW / img.naturalWidth, targetH / img.naturalHeight);
-    const userScale = this.state.scale / 100;
-    const drawScale = baseScale * userScale;
-
-    const drawW = img.naturalWidth * drawScale;
-    const drawH = img.naturalHeight * drawScale;
-
-    // Combo mode: use two-inch reference for offset mapping
-    const refSize = PHOTO_SIZES.twoInch;
-    const offsetScaleX = targetW / refSize.widthPx;
-    const offsetScaleY = targetH / refSize.heightPx;
-    const dpr = window.devicePixelRatio || 1;
-    const offsetX = this.state.offsetX * dpr * offsetScaleX;
-    const offsetY = this.state.offsetY * dpr * offsetScaleY;
-
-    const drawX = x + (targetW - drawW) / 2 + offsetX;
-    const drawY = y + (targetH - drawH) / 2 + offsetY;
-
-    const filters: string[] = [];
-    if (this.state.brightness !== 100) {
-      filters.push(`brightness(${this.state.brightness}%)`);
+  private getPhotoSizeForType(type: PhotoType) {
+    switch (type) {
+      case PhotoType.OneInch: return PHOTO_SIZES.oneInch;
+      case PhotoType.TwoInchHead: return PHOTO_SIZES.twoInchHead;
+      case PhotoType.TwoInchHalf: return PHOTO_SIZES.twoInchHalf;
+      case PhotoType.ThreeByFour: return PHOTO_SIZES.threeByFour;
+      case PhotoType.FiveByFive: return PHOTO_SIZES.fiveByFive;
     }
-    ctx.filter = filters.length > 0 ? filters.join(' ') : 'none';
-
-    ctx.drawImage(img, drawX, drawY, drawW, drawH);
-
-    if (this.state.smooth > 0) {
-      const blurScale = targetW / refSize.widthPx;
-      ctx.filter = `blur(${Math.round(this.state.smooth * blurScale)}px)`;
-      ctx.globalAlpha = 0.5;
-      ctx.drawImage(img, drawX, drawY, drawW, drawH);
-      ctx.globalAlpha = 1.0;
-    }
-
-    if (this.state.brighten > 0) {
-      ctx.globalCompositeOperation = 'screen';
-      ctx.fillStyle = `rgba(255, 255, 255, ${this.state.brighten / 100})`;
-      ctx.fillRect(x, y, targetW, targetH);
-      ctx.globalCompositeOperation = 'source-over';
-    }
-
-    ctx.filter = 'none';
-    ctx.restore();
   }
 
-  private getPhotoSizeForType(type: PhotoType) {
-    if (type === PhotoType.OneInchHalf) return PHOTO_SIZES.oneInch;
-    return PHOTO_SIZES.twoInch;
+  private getLayoutForType(type: PhotoType): LayoutConfig {
+    switch (type) {
+      case PhotoType.OneInch: return LAYOUTS.oneInch;
+      case PhotoType.TwoInchHead: return LAYOUTS.twoInchHead;
+      case PhotoType.TwoInchHalf: return LAYOUTS.twoInchHalf;
+      case PhotoType.ThreeByFour: return LAYOUTS.threeByFour;
+      case PhotoType.FiveByFive: return LAYOUTS.fiveByFive;
+    }
   }
 
   exportPrintLayout(): void {
@@ -157,18 +111,11 @@ export class ExportManager {
     }
 
     const type = this.state.photoType;
+    const layout = this.getLayoutForType(type);
 
-    if (type === PhotoType.Combo) {
-      this.exportCombo();
-      return;
-    }
-
-    const isOneInch = type === PhotoType.OneInchHalf;
-    const layout = isOneInch ? LAYOUTS.oneInch : LAYOUTS.twoInch;
-
-    // Landscape orientation (1800×1200)
-    const canvasW = 1800;
-    const canvasH = 1200;
+    // Portrait 1200×1800 (4×6 吋 @300DPI)
+    const canvasW = PRINT_WIDTH;
+    const canvasH = PRINT_HEIGHT;
 
     const canvas = document.createElement('canvas');
     canvas.width = canvasW;
@@ -203,78 +150,14 @@ export class ExportManager {
     this.drawGridBorders(ctx, startX, startY, totalW, totalH, cols, rows, photoW, photoH, border);
 
     // Draw label at bottom-left corner
-    const labelText = isOneInch ? '一吋半身照' : this.getLabelForType(type);
     ctx.fillStyle = '#333';
     ctx.font = '24px sans-serif';
-    ctx.fillText(labelText, 12, canvasH - 10);
+    ctx.fillText(layout.label, 12, canvasH - 10);
 
-    // Draw brand bar
-    this.drawBrandHorizontal(ctx, canvasW, canvasH);
+    // Draw brand at bottom-right corner
+    this.drawBrand(ctx, canvasW, canvasH);
 
     this.downloadCanvas(canvas, `證件照_${layout.label}_列印圖.png`);
-  }
-
-  private exportCombo(): void {
-    const combo = COMBO_LAYOUT;
-    const canvasW = 1800;
-    const canvasH = 1200;
-    const border = GRID_BORDER;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = canvasW;
-    canvas.height = canvasH;
-    const ctx = canvas.getContext('2d')!;
-
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, canvasW, canvasH);
-
-    const leftPhotoW = combo.left.photoSize.widthPx;
-    const leftPhotoH = combo.left.photoSize.heightPx;
-    const rightPhotoW = combo.right.photoSize.widthPx;
-    const rightPhotoH = combo.right.photoSize.heightPx;
-
-    // Left section: 2 cols × 2 rows of two-inch photos
-    const leftTotalW = combo.left.cols * leftPhotoW + (combo.left.cols - 1) * border;
-    const leftTotalH = combo.left.rows * leftPhotoH + (combo.left.rows - 1) * border;
-    const leftStartX = 50;
-    const leftStartY = (canvasH - leftTotalH) / 2;
-
-    for (let row = 0; row < combo.left.rows; row++) {
-      for (let col = 0; col < combo.left.cols; col++) {
-        const x = leftStartX + col * (leftPhotoW + border);
-        const y = leftStartY + row * (leftPhotoH + border);
-        this.renderPhoto(ctx, x, y, leftPhotoW, leftPhotoH);
-      }
-    }
-
-    this.drawGridBorders(ctx, leftStartX, leftStartY, leftTotalW, leftTotalH, combo.left.cols, combo.left.rows, leftPhotoW, leftPhotoH, border);
-
-    // Right section: 2 cols × 2 rows of one-inch photos
-    const rightStartX = leftStartX + leftTotalW + 50;
-    const rightTotalW = combo.right.cols * rightPhotoW + (combo.right.cols - 1) * border;
-    const rightTotalH = combo.right.rows * rightPhotoH + (combo.right.rows - 1) * border;
-    const rightStartY = leftStartY;
-
-    for (let row = 0; row < combo.right.rows; row++) {
-      for (let col = 0; col < combo.right.cols; col++) {
-        const x = rightStartX + col * (rightPhotoW + border);
-        const y = rightStartY + row * (rightPhotoH + border);
-        this.renderPhotoOneInch(ctx, x, y, rightPhotoW, rightPhotoH);
-      }
-    }
-
-    this.drawGridBorders(ctx, rightStartX, rightStartY, rightTotalW, rightTotalH, combo.right.cols, combo.right.rows, rightPhotoW, rightPhotoH, border);
-
-    // Labels at bottom-left corner
-    ctx.fillStyle = '#333';
-    ctx.font = '24px sans-serif';
-    ctx.fillText('兩吋半身照', 12, canvasH - 10);
-    ctx.fillText('一吋半身照', rightStartX, canvasH - 10);
-
-    // Brand bar
-    this.drawBrandHorizontal(ctx, canvasW, canvasH);
-
-    this.downloadCanvas(canvas, '證件照_兩吋加一吋_列印圖.png');
   }
 
   /**
@@ -322,12 +205,11 @@ export class ExportManager {
     }
   }
 
-  private drawBrandHorizontal(
+  private drawBrand(
     ctx: CanvasRenderingContext2D,
     canvasW: number,
     canvasH: number
   ): void {
-    // Position at the very bottom-right corner, outside photo grid
     ctx.save();
     ctx.textAlign = 'right';
     ctx.fillStyle = '#e87530';
@@ -338,15 +220,6 @@ export class ExportManager {
     ctx.restore();
   }
 
-  private getLabelForType(type: PhotoType): string {
-    switch (type) {
-      case PhotoType.TwoInchHead: return '兩吋大頭照';
-      case PhotoType.TwoInchHalf: return '兩吋半身照';
-      case PhotoType.OneInchHalf: return '一吋半身照';
-      case PhotoType.Combo: return '兩吋+一吋';
-    }
-  }
-
   exportSingle(): void {
     if (!this.state.image) {
       alert('請先上傳照片');
@@ -354,8 +227,7 @@ export class ExportManager {
     }
 
     const type = this.state.photoType;
-    const photoSize =
-      type === PhotoType.OneInchHalf ? PHOTO_SIZES.oneInch : PHOTO_SIZES.twoInch;
+    const photoSize = this.getPhotoSizeForType(type);
 
     const canvas = document.createElement('canvas');
     canvas.width = photoSize.widthPx;
@@ -364,8 +236,7 @@ export class ExportManager {
 
     this.renderPhoto(ctx, 0, 0, photoSize.widthPx, photoSize.heightPx);
 
-    const label = this.getLabelForType(type);
-    this.downloadCanvas(canvas, `證件照_${label}_單張.png`);
+    this.downloadCanvas(canvas, `證件照_${photoSize.label}_單張.png`);
   }
 
   private downloadCanvas(canvas: HTMLCanvasElement, filename: string): void {

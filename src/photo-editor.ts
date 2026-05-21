@@ -52,8 +52,13 @@ export class PhotoEditor {
 
   private getPhotoSize() {
     const type = this.state.photoType;
-    if (type === PhotoType.OneInchHalf) return PHOTO_SIZES.oneInch;
-    return PHOTO_SIZES.twoInch;
+    switch (type) {
+      case PhotoType.OneInch: return PHOTO_SIZES.oneInch;
+      case PhotoType.TwoInchHead: return PHOTO_SIZES.twoInchHead;
+      case PhotoType.TwoInchHalf: return PHOTO_SIZES.twoInchHalf;
+      case PhotoType.ThreeByFour: return PHOTO_SIZES.threeByFour;
+      case PhotoType.FiveByFive: return PHOTO_SIZES.fiveByFive;
+    }
   }
 
   private loadGuideImages(): void {
@@ -229,11 +234,11 @@ export class PhotoEditor {
 
     ctx.clearRect(0, 0, w, h);
 
-    // Pick the correct guide image based on photo type
+    // Pick the correct guide image: half body guide only for TwoInchHalf
     const guideImg =
-      this.state.photoType === PhotoType.TwoInchHead
-        ? this.headGuideImg
-        : this.halfBodyGuideImg;
+      this.state.photoType === PhotoType.TwoInchHalf
+        ? this.halfBodyGuideImg
+        : this.headGuideImg;
 
     if (guideImg && guideImg.complete && guideImg.naturalWidth > 0) {
       ctx.drawImage(guideImg, 0, 0, w, h);
