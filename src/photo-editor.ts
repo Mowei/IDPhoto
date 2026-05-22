@@ -30,9 +30,61 @@ export class PhotoEditor {
   private cropFrameW = 0;
   private cropFrameH = 0;
 
-  // Guide overlay images
-  private headGuideImg: HTMLImageElement | null = null;
-  private halfBodyGuideImg: HTMLImageElement | null = null;
+  // Guide proportions per photo type
+  // headCenterY: head center vertical position (fraction of height)
+  // headRx: head oval horizontal radius (fraction of width)
+  // headRy: head oval vertical radius (fraction of height)
+  // showBody: whether to draw shoulder/body outline
+  // bodyCropY: where body crops at bottom (fraction of height from top)
+  private static GUIDE_PARAMS: Record<PhotoType, {
+    headCenterY: number;
+    headRx: number;
+    headRy: number;
+    showBody: boolean;
+    shoulderY: number;
+    shoulderWidth: number;
+  }> = {
+    [PhotoType.OneInch]: {
+      headCenterY: 0.38,
+      headRx: 0.30,
+      headRy: 0.28,
+      showBody: false,
+      shoulderY: 0.78,
+      shoulderWidth: 0.70,
+    },
+    [PhotoType.TwoInchHead]: {
+      headCenterY: 0.34,
+      headRx: 0.27,
+      headRy: 0.24,
+      showBody: true,
+      shoulderY: 0.72,
+      shoulderWidth: 0.80,
+    },
+    [PhotoType.TwoInchHalf]: {
+      headCenterY: 0.28,
+      headRx: 0.22,
+      headRy: 0.20,
+      showBody: true,
+      shoulderY: 0.58,
+      shoulderWidth: 0.88,
+    },
+    [PhotoType.ThreeByFour]: {
+      headCenterY: 0.34,
+      headRx: 0.27,
+      headRy: 0.24,
+      showBody: true,
+      shoulderY: 0.72,
+      shoulderWidth: 0.78,
+    },
+    [PhotoType.FiveByFive]: {
+      headCenterY: 0.36,
+      headRx: 0.26,
+      headRy: 0.24,
+      showBody: true,
+      shoulderY: 0.74,
+      shoulderWidth: 0.76,
+    },
+  };
 
   constructor(private state: EditorState) {
     this.photoCanvas = document.getElementById('photoCanvas') as HTMLCanvasElement;
@@ -46,8 +98,10 @@ export class PhotoEditor {
     this.zoomControls = document.getElementById('zoomControls')!;
     this.singlePreview = document.getElementById('singlePreview')!;
 
-    this.loadGuideImages();
     this.bindDragEvents();
+
+    // Initial container sizing based on default photo type
+    requestAnimationFrame(() => this.resizeContainer());
   }
 
   private getPhotoSize() {
@@ -61,19 +115,40 @@ export class PhotoEditor {
     }
   }
 
-  private loadGuideImages(): void {
-    this.headGuideImg = new Image();
-    this.headGuideImg.src = '/大頭照參考線.png';
-
-    this.halfBodyGuideImg = new Image();
-    this.halfBodyGuideImg.src = '/半身照參考線.png';
-  }
-
   onTypeChange(): void {
+    this.resizeContainer();
     if (this.state.image) {
+      this.autoFitScale();
       this.setupCanvas();
       this.render();
     }
+  }
+
+  /** Resize the container to match the current photo type's aspect ratio (no image needed) */
+  private resizeContainer(): void {
+    const wrapper = this.container.parentElement!;
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const wrapperW = wrapperRect.width;
+    const wrapperH = wrapperRect.height;
+
+    const photoSize = this.getPhotoSize();
+    const aspectRatio = photoSize.widthPx / photoSize.heightPx;
+
+    const padding = 40;
+    const maxW = wrapperW - padding * 2;
+    const maxH = wrapperH - padding * 2;
+
+    let w: number, h: number;
+    if (maxW / maxH > aspectRatio) {
+      h = maxH;
+      w = maxH * aspectRatio;
+    } else {
+      w = maxW;
+      h = maxW / aspectRatio;
+    }
+
+    this.container.style.width = `${w}px`;
+    this.container.style.height = `${h}px`;
   }
 
   onImageLoaded(): void {
@@ -111,17 +186,18 @@ export class PhotoEditor {
   }
 
   private setupCanvas(): void {
-    const rect = this.container.getBoundingClientRect();
-    const containerW = rect.width;
-    const containerH = rect.height;
+    const wrapper = this.container.parentElement!;
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const wrapperW = wrapperRect.width;
+    const wrapperH = wrapperRect.height;
 
     const photoSize = this.getPhotoSize();
     const aspectRatio = photoSize.widthPx / photoSize.heightPx;
 
-    // Fit the canvas within the container with some padding
+    // Fit the canvas within the wrapper with some padding
     const padding = 40;
-    const maxW = containerW - padding * 2;
-    const maxH = containerH - padding * 2;
+    const maxW = wrapperW - padding * 2;
+    const maxH = wrapperH - padding * 2;
 
     if (maxW / maxH > aspectRatio) {
       this.displayHeight = maxH;
@@ -130,6 +206,10 @@ export class PhotoEditor {
       this.displayWidth = maxW;
       this.displayHeight = maxW / aspectRatio;
     }
+
+    // Resize the container to match the display dimensions exactly
+    this.container.style.width = `${this.displayWidth}px`;
+    this.container.style.height = `${this.displayHeight}px`;
 
     // Make canvases larger for sharp rendering
     const dpr = window.devicePixelRatio || 1;
@@ -145,6 +225,11 @@ export class PhotoEditor {
     this.overlayCanvas.height = canvasH;
     this.overlayCanvas.style.width = `${this.displayWidth}px`;
     this.overlayCanvas.style.height = `${this.displayHeight}px`;
+
+    // Overlay canvas covers the photo canvas exactly
+    this.overlayCanvas.style.position = 'absolute';
+    this.overlayCanvas.style.top = '0';
+    this.overlayCanvas.style.left = '0';
 
     // Crop frame fills the full canvas display area
     this.cropFrameX = 0;
@@ -234,15 +319,60 @@ export class PhotoEditor {
 
     ctx.clearRect(0, 0, w, h);
 
-    // Pick the correct guide image: half body guide only for TwoInchHalf
-    const guideImg =
-      this.state.photoType === PhotoType.TwoInchHalf
-        ? this.halfBodyGuideImg
-        : this.headGuideImg;
+    const params = PhotoEditor.GUIDE_PARAMS[this.state.photoType];
+    const cx = w / 2;
+    const headCy = h * params.headCenterY;
+    const headRx = w * params.headRx;
+    const headRy = h * params.headRy;
 
-    if (guideImg && guideImg.complete && guideImg.naturalWidth > 0) {
-      ctx.drawImage(guideImg, 0, 0, w, h);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 180, 255, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
+
+    // Draw head oval
+    ctx.beginPath();
+    ctx.ellipse(cx, headCy, headRx, headRy, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Draw chin-to-shoulder connection and shoulder curve
+    if (params.showBody) {
+      const shoulderY = h * params.shoulderY;
+      const shoulderHalfW = w * params.shoulderWidth / 2;
+      const chinY = headCy + headRy;
+      const neckHalfW = headRx * 0.45;
+
+      ctx.beginPath();
+      // Left neck line
+      ctx.moveTo(cx - neckHalfW, chinY);
+      // Left shoulder curve
+      ctx.quadraticCurveTo(
+        cx - neckHalfW, shoulderY - (shoulderY - chinY) * 0.3,
+        cx - shoulderHalfW, shoulderY
+      );
+      ctx.stroke();
+
+      ctx.beginPath();
+      // Right neck line
+      ctx.moveTo(cx + neckHalfW, chinY);
+      // Right shoulder curve
+      ctx.quadraticCurveTo(
+        cx + neckHalfW, shoulderY - (shoulderY - chinY) * 0.3,
+        cx + shoulderHalfW, shoulderY
+      );
+      ctx.stroke();
     }
+
+    // Draw center vertical guide line (faint)
+    ctx.strokeStyle = 'rgba(0, 180, 255, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 8]);
+    ctx.beginPath();
+    ctx.moveTo(cx, 0);
+    ctx.lineTo(cx, h);
+    ctx.stroke();
+
+    ctx.restore();
   }
 
   private drawPreview(): void {
