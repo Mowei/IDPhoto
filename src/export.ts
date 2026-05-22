@@ -146,6 +146,8 @@ export class ExportManager {
       }
     }
 
+    this.applyExtraPrintDarken(ctx, startX, startY, cols, rows, photoW, photoH, border);
+
     // Draw 3px border lines between photos
     this.drawGridBorders(ctx, startX, startY, totalW, totalH, cols, rows, photoW, photoH, border);
 
@@ -158,6 +160,33 @@ export class ExportManager {
     this.drawBrand(ctx, canvasW, canvasH);
 
     this.downloadCanvas(canvas, `證件照_${layout.label}_列印圖.png`);
+  }
+
+  private applyExtraPrintDarken(
+    ctx: CanvasRenderingContext2D,
+    startX: number,
+    startY: number,
+    cols: number,
+    rows: number,
+    photoW: number,
+    photoH: number,
+    border: number
+  ): void {
+    if (this.state.exportDarkenPercent <= 0) return;
+
+    const alpha = this.state.exportDarkenPercent / 100;
+    ctx.save();
+    ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const x = startX + col * (photoW + border);
+        const y = startY + row * (photoH + border);
+        ctx.fillRect(x, y, photoW, photoH);
+      }
+    }
+
+    ctx.restore();
   }
 
   /**

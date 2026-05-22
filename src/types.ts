@@ -30,6 +30,7 @@ export interface EditorState {
   smooth: number;
   brighten: number;
   brightness: number;
+  exportDarkenPercent: number;
 }
 
 // 照片尺寸常數 @300DPI (px = cm / 2.54 * 300)

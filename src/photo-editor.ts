@@ -35,7 +35,9 @@ export class PhotoEditor {
   // headRx: head oval horizontal radius (fraction of width)
   // headRy: head oval vertical radius (fraction of height)
   // showBody: whether to draw shoulder/body outline
-  // headTopLine / headBottomLine: strict alignment lines (fraction of height)
+  // headTopLine: top of head line (fraction of height)
+  // headBottomLineMin/Max: chin range limits (fraction of height)
+  // earLeftX/earRightX: ear horizontal range (fraction of width)
   // eyeLine: eye alignment line (fraction of height)
   private static GUIDE_PARAMS: Record<PhotoType, {
     headCenterY: number;
@@ -45,61 +47,87 @@ export class PhotoEditor {
     shoulderY: number;
     shoulderWidth: number;
     headTopLine?: number;
-    headBottomLine?: number;
+    headBottomLineMin?: number;
+    headBottomLineMax?: number;
+    earLeftX?: number;
+    earRightX?: number;
     eyeLine?: number;
   }> = {
     // 1吋大頭貼 (2.8×3.5cm, 331×413px)
-    // 頭頂 8%, 下巴 76%, 耳朵 25%~75% (寬50%), 肩膀 88%
+    // 下巴 72%~80%, 耳朵 25%~75% (寬度50%)
     [PhotoType.OneInch]: {
-      headCenterY: 0.345,
-      headRx: 0.26,
-      headRy: 0.285,
+      headCenterY: 0.39,
+      headRx: 0.25,
+      headRy: 0.34,
+      showBody: true,
+      shoulderY: 0.88,
+      shoulderWidth: 0.50,
+      headTopLine: 0.07,
+      headBottomLineMin: 0.72,
+      headBottomLineMax: 0.80,
+      earLeftX: 0.25,
+      earRightX: 0.75,
+    },
+    // 2吋大頭照 (3.5×4.5cm, 413×531px) —— 護照、身分證（最嚴格）
+    // 下巴 81%~88%, 耳朵 20%~80%, 頭部極大
+    [PhotoType.TwoInchHead]: {
+      headCenterY: 0.45,
+      headRx: 0.30,
+      headRy: 0.36,
+      showBody: true,
+      shoulderY: 0.94,
+      shoulderWidth: 0.40,
+      headTopLine: 0.08,
+      headBottomLineMin: 0.81,
+      headBottomLineMax: 0.88,
+      earLeftX: 0.20,
+      earRightX: 0.80,
+    },
+    // 2吋半身照 (4.2×4.7cm, 496×555px) —— 健保卡、國際駕照
+    // 下巴 64%~70%, 耳朵 28%~72%, 頭部比例較小
+    [PhotoType.TwoInchHalf]: {
+      headCenterY: 0.385,
+      headRx: 0.22,
+      headRy: 0.27,
+      showBody: true,
+      shoulderY: 0.78,
+      shoulderWidth: 0.90,
+      headTopLine: 0.11,
+      headBottomLineMin: 0.64,
+      headBottomLineMax: 0.70,
+      earLeftX: 0.28,
+      earRightX: 0.72,
+    },
+    // 3×4大頭照 (3.0×4.0cm, 354×472px) —— 赴日簽證
+    // 下巴 78%~83%, 耳朵 18%~82%, 照片窄長
+    [PhotoType.ThreeByFour]: {
+      headCenterY: 0.42,
+      headRx: 0.32,
+      headRy: 0.36,
       showBody: true,
       shoulderY: 0.90,
-      shoulderWidth: 0.80,
+      shoulderWidth: 0.75,
+      headTopLine: 0.075,
+      headBottomLineMin: 0.78,
+      headBottomLineMax: 0.83,
+      earLeftX: 0.18,
+      earRightX: 0.82,
     },
-    // 2吋大頭照 (3.5×4.5cm, 413×531px)
-    // 頭頂 8%, 下巴 83%, 耳朵 20%~80% (寬60%), 肩膀 94%, 嚴格對齊線
-    [PhotoType.TwoInchHead]: {
-      headCenterY: 0.39,
-      headRx: 0.30,
-      headRy: 0.325,
-      showBody: true,
-      shoulderY: 0.93,
-      shoulderWidth: 0.70,
-      headTopLine: 0.06,
-      headBottomLine: 0.72,
-    },
-    // 2吋半身照 (4.2×4.7cm, 496×555px)
-    // 頭頂 11%, 下巴 67%, 耳朵 28%~72% (寬44%), 肩膀 78%
-    [PhotoType.TwoInchHalf]: {
-      headCenterY: 0.335,
-      headRx: 0.24,
-      headRy: 0.275,
-      showBody: true,
-      shoulderY: 0.91,
-      shoulderWidth: 0.95,
-    },
-    // 3×4大頭照 (3.0×4.0cm, 354×472px)
-    // 頭頂 7.5%, 下巴 80.5%, 耳朵 18%~82% (寬64%), 肩膀 90%
-    [PhotoType.ThreeByFour]: {
-      headCenterY: 0.39,
-      headRx: 0.30,
-      headRy: 0.325,
-      showBody: true,
-      shoulderY: 0.92,
-      shoulderWidth: 0.82,
-    },
-    // 5×5大頭照 (5.0×5.0cm, 591×591px)
-    // 頭頂 12%, 下巴 68%, 耳朵 26%~74% (寬48%), 肩膀 82%, 眼睛對齊線 37%
+    // 5×5大頭照 (5.0×5.0cm, 591×591px) —— 美簽（正方形）
+    // 下巴 64%~72%, 耳朵 26%~74%, 頭寬 48%~50%
     [PhotoType.FiveByFive]: {
-      headCenterY: 0.36,
-      headRx: 0.25,
+      headCenterY: 0.40,
+      headRx: 0.24,
       headRy: 0.28,
       showBody: true,
-      shoulderY: 0.90,
+      shoulderY: 0.82,
       shoulderWidth: 0.76,
-      eyeLine: 0.41,
+      headTopLine: 0.12,
+      headBottomLineMin: 0.64,
+      headBottomLineMax: 0.72,
+      earLeftX: 0.26,
+      earRightX: 0.74,
+      eyeLine: 0.37,
     },
   };
 
@@ -438,22 +466,59 @@ export class PhotoEditor {
     }
 
     // ── Head-top / chin strict lines (2吋大頭照 etc.) ────────────────────
-    if (params.headTopLine != null && params.headBottomLine != null) {
-      const topY    = photoSize.heightPx * params.headTopLine;
-      const bottomY = photoSize.heightPx * params.headBottomLine;
+    if (params.headTopLine != null) {
+      const topY = photoSize.heightPx * params.headTopLine;
 
       ctx.strokeStyle = 'rgba(255, 120, 0, 0.7)';
       ctx.lineWidth = 2;
       ctx.setLineDash([10, 5]);
 
-      ctx.beginPath(); ctx.moveTo(0, topY);    ctx.lineTo(photoSize.widthPx, topY);    ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, bottomY); ctx.lineTo(photoSize.widthPx, bottomY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, topY); ctx.lineTo(photoSize.widthPx, topY); ctx.stroke();
 
       ctx.font = '11px sans-serif';
       ctx.fillStyle = 'rgba(255, 120, 0, 0.85)';
       ctx.setLineDash([]);
       ctx.fillText('頭頂', 6, topY - 5);
-      ctx.fillText('下巴', 6, bottomY + 14);
+    }
+
+    // ── Chin range lines (all types) ─────────────────────────────────────
+    if (params.headBottomLineMin != null && params.headBottomLineMax != null) {
+      const chinMinY = photoSize.heightPx * params.headBottomLineMin;
+      const chinMaxY = photoSize.heightPx * params.headBottomLineMax;
+
+      ctx.strokeStyle = 'rgba(200, 100, 200, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([8, 6]);
+
+      // Min line
+      ctx.beginPath(); ctx.moveTo(0, chinMinY); ctx.lineTo(photoSize.widthPx, chinMinY); ctx.stroke();
+      // Max line
+      ctx.beginPath(); ctx.moveTo(0, chinMaxY); ctx.lineTo(photoSize.widthPx, chinMaxY); ctx.stroke();
+
+      ctx.font = '10px sans-serif';
+      ctx.fillStyle = 'rgba(200, 100, 200, 0.85)';
+      ctx.setLineDash([]);
+      ctx.fillText('下巴範圍', 6, (chinMinY + chinMaxY) / 2 + 5);
+    }
+
+    // ── Ear range lines (all types) ──────────────────────────────────────
+    if (params.earLeftX != null && params.earRightX != null) {
+      const earLeftX = photoSize.widthPx * params.earLeftX;
+      const earRightX = photoSize.widthPx * params.earRightX;
+
+      ctx.strokeStyle = 'rgba(0, 200, 100, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([8, 6]);
+
+      // Left ear line
+      ctx.beginPath(); ctx.moveTo(earLeftX, 0); ctx.lineTo(earLeftX, photoSize.heightPx); ctx.stroke();
+      // Right ear line
+      ctx.beginPath(); ctx.moveTo(earRightX, 0); ctx.lineTo(earRightX, photoSize.heightPx); ctx.stroke();
+
+      ctx.font = '10px sans-serif';
+      ctx.fillStyle = 'rgba(0, 200, 100, 0.85)';
+      ctx.setLineDash([]);
+      ctx.fillText('耳朵', (earLeftX + earRightX) / 2 - 10, 15);
     }
 
     // ── Eye line (5×5 美簽) ───────────────────────────────────────────────
@@ -562,10 +627,13 @@ export class PhotoEditor {
     const drawH = img.naturalHeight * drawScale;
 
     // Map offset from display coords to target coords
-    const scaleFactorX = targetW / this.displayWidth;
-    const scaleFactorY = targetH / this.displayHeight;
-    const offsetX = this.state.offsetX * scaleFactorX;
-    const offsetY = this.state.offsetY * scaleFactorY;
+    const dpr = window.devicePixelRatio || 1;
+    const displayCanvasW = this.displayWidth * dpr;
+    const displayCanvasH = this.displayHeight * dpr;
+    const scaleFactorX = targetW / displayCanvasW;
+    const scaleFactorY = targetH / displayCanvasH;
+    const offsetX = this.state.offsetX * dpr * scaleFactorX;
+    const offsetY = this.state.offsetY * dpr * scaleFactorY;
 
     const drawX = (targetW - drawW) / 2 + offsetX;
     const drawY = (targetH - drawH) / 2 + offsetY;
@@ -580,7 +648,7 @@ export class PhotoEditor {
 
     if (this.state.smooth > 0) {
       ctx.save();
-      ctx.filter = `blur(${Math.round(this.state.smooth * (targetW / this.displayWidth))}px)`;
+      ctx.filter = `blur(${Math.round(this.state.smooth * (targetW / displayCanvasW))}px)`;
       ctx.globalAlpha = 0.5;
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
       ctx.restore();
@@ -615,13 +683,8 @@ export class PhotoEditor {
       if (!this.isDragging) return;
       const dx = e.clientX - this.dragStartX;
       const dy = e.clientY - this.dragStartY;
-      
-      // Scale drag distance from display coords to output coords
-      const photoSize = this.getPhotoSize();
-      const scaleFactor = photoSize.widthPx / this.displayWidth;
-      
-      this.state.offsetX = this.startOffsetX + dx * scaleFactor;
-      this.state.offsetY = this.startOffsetY + dy * scaleFactor;
+      this.state.offsetX = this.startOffsetX + dx;
+      this.state.offsetY = this.startOffsetY + dy;
       this.render();
     });
 
@@ -649,13 +712,8 @@ export class PhotoEditor {
       const touch = e.touches[0];
       const dx = touch.clientX - this.dragStartX;
       const dy = touch.clientY - this.dragStartY;
-      
-      // Scale drag distance from display coords to output coords
-      const photoSize = this.getPhotoSize();
-      const scaleFactor = photoSize.widthPx / this.displayWidth;
-      
-      this.state.offsetX = this.startOffsetX + dx * scaleFactor;
-      this.state.offsetY = this.startOffsetY + dy * scaleFactor;
+      this.state.offsetX = this.startOffsetX + dx;
+      this.state.offsetY = this.startOffsetY + dy;
       this.render();
     });
 

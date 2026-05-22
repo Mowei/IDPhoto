@@ -13,6 +13,7 @@ class App {
     smooth: 0,
     brighten: 0,
     brightness: 100,
+    exportDarkenPercent: 16,
   };
 
   private editor!: PhotoEditor;
@@ -80,6 +81,20 @@ class App {
       this.state.scale = Math.max(10, this.state.scale - 5);
       zoomSlider.value = String(this.state.scale);
       zoomValue.textContent = `${this.state.scale}%`;
+      this.editor.render();
+    });
+
+    // Export darken slider
+    const exportDarkenSlider = document.getElementById('exportDarkenSlider') as HTMLInputElement;
+    const exportDarkenValue = document.getElementById('exportDarkenValue')!;
+    exportDarkenSlider.value = '5';
+    exportDarkenValue.textContent = `${this.state.exportDarkenPercent}%`;
+
+    const darkenOptions = [0, 8, 10, 12, 14, 16];
+    exportDarkenSlider.addEventListener('input', () => {
+      const index = Math.max(0, Math.min(darkenOptions.length - 1, parseInt(exportDarkenSlider.value, 10) || 0));
+      this.state.exportDarkenPercent = darkenOptions[index];
+      exportDarkenValue.textContent = `${this.state.exportDarkenPercent}%`;
       this.editor.render();
     });
 

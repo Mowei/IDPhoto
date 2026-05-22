@@ -121,7 +121,7 @@ header h1 {
 }
 
 .slider-group input[type="range"] {
-  width: calc(100% - 40px);
+  width: 100%;
   vertical-align: middle;
 }
 
