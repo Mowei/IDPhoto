@@ -35,7 +35,8 @@ export class PhotoEditor {
   // headRx: head oval horizontal radius (fraction of width)
   // headRy: head oval vertical radius (fraction of height)
   // showBody: whether to draw shoulder/body outline
-  // bodyCropY: where body crops at bottom (fraction of height from top)
+  // headTopLine / headBottomLine: strict alignment lines (fraction of height)
+  // eyeLine: eye alignment line (fraction of height)
   private static GUIDE_PARAMS: Record<PhotoType, {
     headCenterY: number;
     headRx: number;
@@ -43,46 +44,62 @@ export class PhotoEditor {
     showBody: boolean;
     shoulderY: number;
     shoulderWidth: number;
+    headTopLine?: number;
+    headBottomLine?: number;
+    eyeLine?: number;
   }> = {
+    // 1吋大頭貼 (2.8×3.5cm, 331×413px)
+    // 頭頂 8%, 下巴 76%, 耳朵 25%~75% (寬50%), 肩膀 88%
     [PhotoType.OneInch]: {
-      headCenterY: 0.38,
-      headRx: 0.30,
-      headRy: 0.28,
-      showBody: false,
-      shoulderY: 0.78,
+      headCenterY: 0.42,
+      headRx: 0.25,
+      headRy: 0.34,
+      showBody: true,
+      shoulderY: 0.88,
       shoulderWidth: 0.70,
     },
+    // 2吋大頭照 (3.5×4.5cm, 413×531px)
+    // 頭頂 8%, 下巴 83%, 耳朵 20%~80% (寬60%), 肩膀 94%, 嚴格對齊線
     [PhotoType.TwoInchHead]: {
-      headCenterY: 0.34,
-      headRx: 0.27,
-      headRy: 0.24,
+      headCenterY: 0.455,
+      headRx: 0.30,
+      headRy: 0.375,
       showBody: true,
-      shoulderY: 0.72,
-      shoulderWidth: 0.80,
+      shoulderY: 0.94,
+      shoulderWidth: 0.50,
+      headTopLine: 0.08,
+      headBottomLine: 0.84,
     },
+    // 2吋半身照 (4.2×4.7cm, 496×555px)
+    // 頭頂 11%, 下巴 67%, 耳朵 28%~72% (寬44%), 肩膀 78%
     [PhotoType.TwoInchHalf]: {
-      headCenterY: 0.28,
+      headCenterY: 0.39,
       headRx: 0.22,
-      headRy: 0.20,
+      headRy: 0.28,
       showBody: true,
-      shoulderY: 0.58,
-      shoulderWidth: 0.88,
+      shoulderY: 0.78,
+      shoulderWidth: 0.90,
     },
+    // 3×4大頭照 (3.0×4.0cm, 354×472px)
+    // 頭頂 7.5%, 下巴 80.5%, 耳朵 18%~82% (寬64%), 肩膀 90%
     [PhotoType.ThreeByFour]: {
-      headCenterY: 0.34,
-      headRx: 0.27,
-      headRy: 0.24,
+      headCenterY: 0.44,
+      headRx: 0.32,
+      headRy: 0.365,
       showBody: true,
-      shoulderY: 0.72,
+      shoulderY: 0.90,
       shoulderWidth: 0.78,
     },
+    // 5×5大頭照 (5.0×5.0cm, 591×591px)
+    // 頭頂 12%, 下巴 68%, 耳朵 26%~74% (寬48%), 肩膀 82%, 眼睛對齊線 37%
     [PhotoType.FiveByFive]: {
-      headCenterY: 0.36,
-      headRx: 0.26,
-      headRy: 0.24,
+      headCenterY: 0.40,
+      headRx: 0.24,
+      headRy: 0.28,
       showBody: true,
-      shoulderY: 0.74,
+      shoulderY: 0.82,
       shoulderWidth: 0.76,
+      eyeLine: 0.37,
     },
   };
 
@@ -314,48 +331,79 @@ export class PhotoEditor {
 
   private drawOverlay(): void {
     const ctx = this.overlayCtx;
+    const dpr = window.devicePixelRatio || 1;
     const w = this.overlayCanvas.width;
     const h = this.overlayCanvas.height;
+    const displayW = this.displayWidth;
+    const displayH = this.displayHeight;
 
     ctx.clearRect(0, 0, w, h);
 
     const params = PhotoEditor.GUIDE_PARAMS[this.state.photoType];
-    const cx = w / 2;
-    const headCy = h * params.headCenterY;
-    const headRx = w * params.headRx;
-    const headRy = h * params.headRy;
+    const cx = displayW / 2;
+    const headCy = displayH * params.headCenterY;
+    const headRx = displayW * params.headRx;
+    const headRy = displayH * params.headRy;
+    const chinY = headCy + headRy;
 
     ctx.save();
-    ctx.strokeStyle = 'rgba(0, 180, 255, 0.6)';
+    ctx.scale(dpr, dpr);  // all coordinates below are in display pixels
+
+    // ── Face outline ────────────────────────────────────────────────────
+    // Face shape defined ONCE in normalized space, scaled by a FIXED pixel
+    // aspect ratio (FACE_ASPECT) so it looks identical across all photo types.
+    // headRy controls size; FACE_ASPECT controls shape consistency.
+    const FACE_ASPECT = 0.72;                     // natural face width:height ratio
+    const faceRyPx = headRy;                      // already in pixels from headRy = displayH * params.headRy
+    const faceRxPx = faceRyPx * FACE_ASPECT;      // half-width = 0.72 × height (always consistent)
+
+    const earYn   = -0.12;
+    const upperHn = earYn - (-1);   // 0.88
+    const lowerHn = 1 - earYn;      // 1.12
+    const k       = 0.55;
+    const kChin   = 0.40;
+
+    ctx.save();
+    ctx.translate(cx, headCy);
+    ctx.scale(faceRxPx, faceRyPx);  // uniform face shape regardless of photo type
+
+    ctx.beginPath();
+    ctx.moveTo(0, -1);   // crown
+    ctx.bezierCurveTo( k,     -1,                   1, earYn - upperHn * k,  1, earYn );
+    ctx.bezierCurveTo( 1,      earYn + lowerHn * k,  kChin, 1,               0, 1     );
+    ctx.bezierCurveTo(-kChin,  1,                   -1, earYn + lowerHn * k, -1, earYn );
+    ctx.bezierCurveTo(-1,      earYn - upperHn * k,  -k, -1,                 0, -1    );
+    ctx.closePath();
+
+    ctx.restore();  // back to display coords — path is already baked in screen space
+
+    ctx.strokeStyle = 'rgba(0, 180, 255, 0.7)';
     ctx.lineWidth = 2;
     ctx.setLineDash([8, 6]);
-
-    // Draw head oval
-    ctx.beginPath();
-    ctx.ellipse(cx, headCy, headRx, headRy, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Draw chin-to-shoulder connection and shoulder curve
+    // ── Neck + shoulder curves ───────────────────────────────────────────
     if (params.showBody) {
-      const shoulderY = h * params.shoulderY;
-      const shoulderHalfW = w * params.shoulderWidth / 2;
-      const chinY = headCy + headRy;
-      const neckHalfW = headRx * 0.45;
+      const shoulderY    = displayH * params.shoulderY;
+      const shoulderHalfW = displayW * params.shoulderWidth / 2;
+      const neckHalfW    = headRx * 0.42;
 
+      ctx.strokeStyle = 'rgba(0, 180, 255, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+
+      // Left
       ctx.beginPath();
-      // Left neck line
       ctx.moveTo(cx - neckHalfW, chinY);
-      // Left shoulder curve
       ctx.quadraticCurveTo(
         cx - neckHalfW, shoulderY - (shoulderY - chinY) * 0.3,
         cx - shoulderHalfW, shoulderY
       );
       ctx.stroke();
 
+      // Right
       ctx.beginPath();
-      // Right neck line
       ctx.moveTo(cx + neckHalfW, chinY);
-      // Right shoulder curve
       ctx.quadraticCurveTo(
         cx + neckHalfW, shoulderY - (shoulderY - chinY) * 0.3,
         cx + shoulderHalfW, shoulderY
@@ -363,14 +411,46 @@ export class PhotoEditor {
       ctx.stroke();
     }
 
-    // Draw center vertical guide line (faint)
+    // ── Head-top / chin strict lines (2吋大頭照 etc.) ────────────────────
+    if (params.headTopLine != null && params.headBottomLine != null) {
+      const topY    = displayH * params.headTopLine;
+      const bottomY = displayH * params.headBottomLine;
+
+      ctx.strokeStyle = 'rgba(255, 120, 0, 0.7)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 5]);
+
+      ctx.beginPath(); ctx.moveTo(0, topY);    ctx.lineTo(displayW, topY);    ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, bottomY); ctx.lineTo(displayW, bottomY); ctx.stroke();
+
+      ctx.font = '11px sans-serif';
+      ctx.fillStyle = 'rgba(255, 120, 0, 0.85)';
+      ctx.setLineDash([]);
+      ctx.fillText('頭頂', 6, topY - 5);
+      ctx.fillText('下巴', 6, bottomY + 14);
+    }
+
+    // ── Eye line (5×5 美簽) ───────────────────────────────────────────────
+    if (params.eyeLine != null) {
+      const eyeY = displayH * params.eyeLine;
+
+      ctx.strokeStyle = 'rgba(0, 220, 120, 0.7)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+
+      ctx.beginPath(); ctx.moveTo(0, eyeY); ctx.lineTo(displayW, eyeY); ctx.stroke();
+
+      ctx.font = '11px sans-serif';
+      ctx.fillStyle = 'rgba(0, 220, 120, 0.85)';
+      ctx.setLineDash([]);
+      ctx.fillText('眼睛對齊', 6, eyeY - 5);
+    }
+
+    // ── Center vertical guide (faint) ────────────────────────────────────
     ctx.strokeStyle = 'rgba(0, 180, 255, 0.25)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 8]);
-    ctx.beginPath();
-    ctx.moveTo(cx, 0);
-    ctx.lineTo(cx, h);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, displayH); ctx.stroke();
 
     ctx.restore();
   }
