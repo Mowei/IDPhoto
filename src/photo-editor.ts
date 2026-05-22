@@ -51,55 +51,84 @@ export class PhotoEditor {
     // 1吋大頭貼 (2.8×3.5cm, 331×413px)
     // 頭頂 8%, 下巴 76%, 耳朵 25%~75% (寬50%), 肩膀 88%
     [PhotoType.OneInch]: {
-      headCenterY: 0.42,
-      headRx: 0.25,
-      headRy: 0.34,
+      headCenterY: 0.345,
+      headRx: 0.26,
+      headRy: 0.285,
       showBody: true,
-      shoulderY: 0.88,
-      shoulderWidth: 0.70,
+      shoulderY: 0.90,
+      shoulderWidth: 0.80,
     },
     // 2吋大頭照 (3.5×4.5cm, 413×531px)
     // 頭頂 8%, 下巴 83%, 耳朵 20%~80% (寬60%), 肩膀 94%, 嚴格對齊線
     [PhotoType.TwoInchHead]: {
-      headCenterY: 0.455,
+      headCenterY: 0.39,
       headRx: 0.30,
-      headRy: 0.375,
+      headRy: 0.325,
       showBody: true,
-      shoulderY: 0.94,
-      shoulderWidth: 0.50,
-      headTopLine: 0.08,
-      headBottomLine: 0.84,
+      shoulderY: 0.93,
+      shoulderWidth: 0.70,
+      headTopLine: 0.06,
+      headBottomLine: 0.72,
     },
     // 2吋半身照 (4.2×4.7cm, 496×555px)
     // 頭頂 11%, 下巴 67%, 耳朵 28%~72% (寬44%), 肩膀 78%
     [PhotoType.TwoInchHalf]: {
-      headCenterY: 0.39,
-      headRx: 0.22,
-      headRy: 0.28,
+      headCenterY: 0.335,
+      headRx: 0.24,
+      headRy: 0.275,
       showBody: true,
-      shoulderY: 0.78,
-      shoulderWidth: 0.90,
+      shoulderY: 0.91,
+      shoulderWidth: 0.95,
     },
     // 3×4大頭照 (3.0×4.0cm, 354×472px)
     // 頭頂 7.5%, 下巴 80.5%, 耳朵 18%~82% (寬64%), 肩膀 90%
     [PhotoType.ThreeByFour]: {
-      headCenterY: 0.44,
-      headRx: 0.32,
-      headRy: 0.365,
+      headCenterY: 0.39,
+      headRx: 0.30,
+      headRy: 0.325,
       showBody: true,
-      shoulderY: 0.90,
-      shoulderWidth: 0.78,
+      shoulderY: 0.92,
+      shoulderWidth: 0.82,
     },
     // 5×5大頭照 (5.0×5.0cm, 591×591px)
     // 頭頂 12%, 下巴 68%, 耳朵 26%~74% (寬48%), 肩膀 82%, 眼睛對齊線 37%
     [PhotoType.FiveByFive]: {
-      headCenterY: 0.40,
-      headRx: 0.24,
+      headCenterY: 0.36,
+      headRx: 0.25,
       headRy: 0.28,
       showBody: true,
-      shoulderY: 0.82,
+      shoulderY: 0.90,
       shoulderWidth: 0.76,
-      eyeLine: 0.37,
+      eyeLine: 0.41,
+    },
+  };
+
+  // Default composition presets based on sample templates.
+  // fitMultiplier controls initial zoom amount after fill-scale.
+  // offsetYRatio uses display height as unit; negative lifts subject upward.
+  private static COMPOSITION_PRESETS: Record<PhotoType, {
+    fitMultiplier: number;
+    offsetYRatio: number;
+  }> = {
+    [PhotoType.OneInch]: {
+      fitMultiplier: 1.12,
+      offsetYRatio: -0.055,
+    },
+    [PhotoType.TwoInchHead]: {
+      fitMultiplier: 1.16,
+      offsetYRatio: -0.065,
+    },
+    [PhotoType.TwoInchHalf]: {
+      fitMultiplier: 1.04,
+      offsetYRatio: -0.04,
+    },
+    [PhotoType.ThreeByFour]: {
+      fitMultiplier: 1.14,
+      offsetYRatio: -0.06,
+    },
+    [PhotoType.FiveByFive]: {
+      fitMultiplier: 1.08,
+      offsetYRatio: -0.05,
     },
   };
 
@@ -135,8 +164,8 @@ export class PhotoEditor {
   onTypeChange(): void {
     this.resizeContainer();
     if (this.state.image) {
-      this.autoFitScale();
       this.setupCanvas();
+      this.autoFitScale();
       this.render();
     }
   }
@@ -173,27 +202,29 @@ export class PhotoEditor {
     this.zoomControls.classList.add('visible');
     this.singlePreview.classList.add('visible');
 
-    // Auto-scale to fit crop frame
-    this.autoFitScale();
     this.setupCanvas();
+
+    // Auto-scale to fit crop frame and align initial composition
+    this.autoFitScale();
     this.render();
   }
 
   private autoFitScale(): void {
     const img = this.state.image!;
     const photoSize = this.getPhotoSize();
-    const ratio = photoSize.widthPx / photoSize.heightPx;
+    const preset = PhotoEditor.COMPOSITION_PRESETS[this.state.photoType];
 
     // Calculate scale so image fills the crop area
     // We work in a normalized coordinate system where crop frame = photoSize pixels
     const scaleToFillW = photoSize.widthPx / img.naturalWidth;
     const scaleToFillH = photoSize.heightPx / img.naturalHeight;
     const fillScale = Math.max(scaleToFillW, scaleToFillH);
+    const fittedScale = fillScale * preset.fitMultiplier;
 
     // Convert to percentage (100% = image exactly fills crop frame on the larger dimension)
-    this.state.scale = Math.ceil(fillScale * 100);
+    this.state.scale = Math.round(fittedScale * 100);
     this.state.offsetX = 0;
-    this.state.offsetY = 0;
+    this.state.offsetY = this.displayHeight * preset.offsetYRatio;
 
     // Update zoom slider
     const zoomSlider = document.getElementById('zoomSlider') as HTMLInputElement;
@@ -228,18 +259,15 @@ export class PhotoEditor {
     this.container.style.width = `${this.displayWidth}px`;
     this.container.style.height = `${this.displayHeight}px`;
 
-    // Make canvases larger for sharp rendering
-    const dpr = window.devicePixelRatio || 1;
-    const canvasW = Math.round(this.displayWidth * dpr);
-    const canvasH = Math.round(this.displayHeight * dpr);
-
-    this.photoCanvas.width = canvasW;
-    this.photoCanvas.height = canvasH;
+    // Canvas physical resolution matches actual output size (photoSize)
+    // This ensures no scaling artifacts during preview
+    this.photoCanvas.width = photoSize.widthPx;
+    this.photoCanvas.height = photoSize.heightPx;
     this.photoCanvas.style.width = `${this.displayWidth}px`;
     this.photoCanvas.style.height = `${this.displayHeight}px`;
 
-    this.overlayCanvas.width = canvasW;
-    this.overlayCanvas.height = canvasH;
+    this.overlayCanvas.width = photoSize.widthPx;
+    this.overlayCanvas.height = photoSize.heightPx;
     this.overlayCanvas.style.width = `${this.displayWidth}px`;
     this.overlayCanvas.style.height = `${this.displayHeight}px`;
 
@@ -248,13 +276,13 @@ export class PhotoEditor {
     this.overlayCanvas.style.top = '0';
     this.overlayCanvas.style.left = '0';
 
-    // Crop frame fills the full canvas display area
+    // Crop frame fills the actual output size (no DPR scaling)
     this.cropFrameX = 0;
     this.cropFrameY = 0;
-    this.cropFrameW = canvasW;
-    this.cropFrameH = canvasH;
+    this.cropFrameW = photoSize.widthPx;
+    this.cropFrameH = photoSize.heightPx;
 
-    // Setup preview canvas
+    // Setup preview canvas with actual output resolution
     const previewMaxW = 180;
     const previewH = previewMaxW / aspectRatio;
     this.previewCanvas.width = photoSize.widthPx;
@@ -267,7 +295,6 @@ export class PhotoEditor {
     if (!this.state.image) return;
 
     const img = this.state.image;
-    const dpr = window.devicePixelRatio || 1;
     const ctx = this.photoCtx;
     const photoSize = this.getPhotoSize();
 
@@ -289,9 +316,9 @@ export class PhotoEditor {
     const drawW = img.naturalWidth * drawScale;
     const drawH = img.naturalHeight * drawScale;
 
-    // Center image + apply offset (offset is in canvas pixels)
-    const drawX = (canvasW - drawW) / 2 + this.state.offsetX * dpr;
-    const drawY = (canvasH - drawH) / 2 + this.state.offsetY * dpr;
+    // Center image + apply offset (offset is in photoSize pixels, no DPR scaling needed)
+    const drawX = (canvasW - drawW) / 2 + this.state.offsetX;
+    const drawY = (canvasH - drawH) / 2 + this.state.offsetY;
 
     // Apply beauty filters
     const filters: string[] = [];
@@ -331,23 +358,22 @@ export class PhotoEditor {
 
   private drawOverlay(): void {
     const ctx = this.overlayCtx;
-    const dpr = window.devicePixelRatio || 1;
     const w = this.overlayCanvas.width;
     const h = this.overlayCanvas.height;
-    const displayW = this.displayWidth;
-    const displayH = this.displayHeight;
+    const photoSize = this.getPhotoSize();
 
     ctx.clearRect(0, 0, w, h);
 
     const params = PhotoEditor.GUIDE_PARAMS[this.state.photoType];
-    const cx = displayW / 2;
-    const headCy = displayH * params.headCenterY;
-    const headRx = displayW * params.headRx;
-    const headRy = displayH * params.headRy;
+    // Guides are calculated in photoSize pixel space
+    const cx = photoSize.widthPx / 2;
+    const headCy = photoSize.heightPx * params.headCenterY;
+    const headRx = photoSize.widthPx * params.headRx;
+    const headRy = photoSize.heightPx * params.headRy;
     const chinY = headCy + headRy;
 
     ctx.save();
-    ctx.scale(dpr, dpr);  // all coordinates below are in display pixels
+    // No DPR scaling needed - canvas is already in photoSize pixels
 
     // ── Face outline ────────────────────────────────────────────────────
     // Face shape defined ONCE in normalized space, scaled by a FIXED pixel
@@ -384,8 +410,8 @@ export class PhotoEditor {
 
     // ── Neck + shoulder curves ───────────────────────────────────────────
     if (params.showBody) {
-      const shoulderY    = displayH * params.shoulderY;
-      const shoulderHalfW = displayW * params.shoulderWidth / 2;
+      const shoulderY    = photoSize.heightPx * params.shoulderY;
+      const shoulderHalfW = photoSize.widthPx * params.shoulderWidth / 2;
       const neckHalfW    = headRx * 0.42;
 
       ctx.strokeStyle = 'rgba(0, 180, 255, 0.6)';
@@ -413,15 +439,15 @@ export class PhotoEditor {
 
     // ── Head-top / chin strict lines (2吋大頭照 etc.) ────────────────────
     if (params.headTopLine != null && params.headBottomLine != null) {
-      const topY    = displayH * params.headTopLine;
-      const bottomY = displayH * params.headBottomLine;
+      const topY    = photoSize.heightPx * params.headTopLine;
+      const bottomY = photoSize.heightPx * params.headBottomLine;
 
       ctx.strokeStyle = 'rgba(255, 120, 0, 0.7)';
       ctx.lineWidth = 2;
       ctx.setLineDash([10, 5]);
 
-      ctx.beginPath(); ctx.moveTo(0, topY);    ctx.lineTo(displayW, topY);    ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, bottomY); ctx.lineTo(displayW, bottomY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, topY);    ctx.lineTo(photoSize.widthPx, topY);    ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, bottomY); ctx.lineTo(photoSize.widthPx, bottomY); ctx.stroke();
 
       ctx.font = '11px sans-serif';
       ctx.fillStyle = 'rgba(255, 120, 0, 0.85)';
@@ -432,13 +458,13 @@ export class PhotoEditor {
 
     // ── Eye line (5×5 美簽) ───────────────────────────────────────────────
     if (params.eyeLine != null) {
-      const eyeY = displayH * params.eyeLine;
+      const eyeY = photoSize.heightPx * params.eyeLine;
 
       ctx.strokeStyle = 'rgba(0, 220, 120, 0.7)';
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 6]);
 
-      ctx.beginPath(); ctx.moveTo(0, eyeY); ctx.lineTo(displayW, eyeY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, eyeY); ctx.lineTo(photoSize.widthPx, eyeY); ctx.stroke();
 
       ctx.font = '11px sans-serif';
       ctx.fillStyle = 'rgba(0, 220, 120, 0.85)';
@@ -450,7 +476,7 @@ export class PhotoEditor {
     ctx.strokeStyle = 'rgba(0, 180, 255, 0.25)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 8]);
-    ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, displayH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, photoSize.heightPx); ctx.stroke();
 
     ctx.restore();
   }
@@ -476,12 +502,11 @@ export class PhotoEditor {
     const drawW = img.naturalWidth * drawScale;
     const drawH = img.naturalHeight * drawScale;
 
-    // Map offset from display coords to DPI coords
-    const dpr = window.devicePixelRatio || 1;
-    const scaleFactorX = pw / (this.displayWidth * dpr);
-    const scaleFactorY = ph / (this.displayHeight * dpr);
-    const offsetX = this.state.offsetX * dpr * scaleFactorX;
-    const offsetY = this.state.offsetY * dpr * scaleFactorY;
+    // Scale offset from display coords to actual output coords
+    const scaleFactorX = pw / this.displayWidth;
+    const scaleFactorY = ph / this.displayHeight;
+    const offsetX = this.state.offsetX * scaleFactorX;
+    const offsetY = this.state.offsetY * scaleFactorY;
 
     const drawX = (pw - drawW) / 2 + offsetX;
     const drawY = (ph - drawH) / 2 + offsetY;
@@ -537,13 +562,10 @@ export class PhotoEditor {
     const drawH = img.naturalHeight * drawScale;
 
     // Map offset from display coords to target coords
-    const dpr = window.devicePixelRatio || 1;
-    const displayCanvasW = this.displayWidth * dpr;
-    const displayCanvasH = this.displayHeight * dpr;
-    const scaleFactorX = targetW / displayCanvasW;
-    const scaleFactorY = targetH / displayCanvasH;
-    const offsetX = this.state.offsetX * dpr * scaleFactorX;
-    const offsetY = this.state.offsetY * dpr * scaleFactorY;
+    const scaleFactorX = targetW / this.displayWidth;
+    const scaleFactorY = targetH / this.displayHeight;
+    const offsetX = this.state.offsetX * scaleFactorX;
+    const offsetY = this.state.offsetY * scaleFactorY;
 
     const drawX = (targetW - drawW) / 2 + offsetX;
     const drawY = (targetH - drawH) / 2 + offsetY;
@@ -558,7 +580,7 @@ export class PhotoEditor {
 
     if (this.state.smooth > 0) {
       ctx.save();
-      ctx.filter = `blur(${Math.round(this.state.smooth * (targetW / displayCanvasW))}px)`;
+      ctx.filter = `blur(${Math.round(this.state.smooth * (targetW / this.displayWidth))}px)`;
       ctx.globalAlpha = 0.5;
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
       ctx.restore();
@@ -593,8 +615,13 @@ export class PhotoEditor {
       if (!this.isDragging) return;
       const dx = e.clientX - this.dragStartX;
       const dy = e.clientY - this.dragStartY;
-      this.state.offsetX = this.startOffsetX + dx;
-      this.state.offsetY = this.startOffsetY + dy;
+      
+      // Scale drag distance from display coords to output coords
+      const photoSize = this.getPhotoSize();
+      const scaleFactor = photoSize.widthPx / this.displayWidth;
+      
+      this.state.offsetX = this.startOffsetX + dx * scaleFactor;
+      this.state.offsetY = this.startOffsetY + dy * scaleFactor;
       this.render();
     });
 
@@ -622,8 +649,13 @@ export class PhotoEditor {
       const touch = e.touches[0];
       const dx = touch.clientX - this.dragStartX;
       const dy = touch.clientY - this.dragStartY;
-      this.state.offsetX = this.startOffsetX + dx;
-      this.state.offsetY = this.startOffsetY + dy;
+      
+      // Scale drag distance from display coords to output coords
+      const photoSize = this.getPhotoSize();
+      const scaleFactor = photoSize.widthPx / this.displayWidth;
+      
+      this.state.offsetX = this.startOffsetX + dx * scaleFactor;
+      this.state.offsetY = this.startOffsetY + dy * scaleFactor;
       this.render();
     });
 
