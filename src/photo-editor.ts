@@ -252,6 +252,7 @@ export class PhotoEditor {
     // Convert to percentage (100% = image exactly fills crop frame on the larger dimension)
     this.state.scale = Math.round(fittedScale * 100);
     this.state.offsetX = 0;
+    // offsetY in displayHeight space (what user sees), will convert to photoSize space in render()
     this.state.offsetY = this.displayHeight * preset.offsetYRatio;
 
     // Update zoom slider
@@ -262,42 +263,26 @@ export class PhotoEditor {
   }
 
   private setupCanvas(): void {
-    const wrapper = this.container.parentElement!;
-    const wrapperRect = wrapper.getBoundingClientRect();
-    const wrapperW = wrapperRect.width;
-    const wrapperH = wrapperRect.height;
-
     const photoSize = this.getPhotoSize();
-    const aspectRatio = photoSize.widthPx / photoSize.heightPx;
+    
+    // Set displayWidth/Height to match photoSize exactly (1:1 scale)
+    this.displayWidth = photoSize.widthPx;
+    this.displayHeight = photoSize.heightPx;
 
-    // Fit the canvas within the wrapper with some padding
-    const padding = 40;
-    const maxW = wrapperW - padding * 2;
-    const maxH = wrapperH - padding * 2;
-
-    if (maxW / maxH > aspectRatio) {
-      this.displayHeight = maxH;
-      this.displayWidth = maxH * aspectRatio;
-    } else {
-      this.displayWidth = maxW;
-      this.displayHeight = maxW / aspectRatio;
-    }
-
-    // Resize the container to match the display dimensions exactly
+    // Resize the container to match photo size
     this.container.style.width = `${this.displayWidth}px`;
     this.container.style.height = `${this.displayHeight}px`;
 
-    // Canvas physical resolution matches actual output size (photoSize)
-    // This ensures no scaling artifacts during preview
+    // Canvas width/height and style.width/height all match photoSize (no scaling)
     this.photoCanvas.width = photoSize.widthPx;
     this.photoCanvas.height = photoSize.heightPx;
-    this.photoCanvas.style.width = `${this.displayWidth}px`;
-    this.photoCanvas.style.height = `${this.displayHeight}px`;
+    this.photoCanvas.style.width = `${photoSize.widthPx}px`;
+    this.photoCanvas.style.height = `${photoSize.heightPx}px`;
 
     this.overlayCanvas.width = photoSize.widthPx;
     this.overlayCanvas.height = photoSize.heightPx;
-    this.overlayCanvas.style.width = `${this.displayWidth}px`;
-    this.overlayCanvas.style.height = `${this.displayHeight}px`;
+    this.overlayCanvas.style.width = `${photoSize.widthPx}px`;
+    this.overlayCanvas.style.height = `${photoSize.heightPx}px`;
 
     // Overlay canvas covers the photo canvas exactly
     this.overlayCanvas.style.position = 'absolute';
@@ -310,13 +295,11 @@ export class PhotoEditor {
     this.cropFrameW = photoSize.widthPx;
     this.cropFrameH = photoSize.heightPx;
 
-    // Setup preview canvas with actual output resolution
-    const previewMaxW = 180;
-    const previewH = previewMaxW / aspectRatio;
+    // Setup preview canvas with 1:1 mapping
     this.previewCanvas.width = photoSize.widthPx;
     this.previewCanvas.height = photoSize.heightPx;
-    this.previewCanvas.style.width = `${previewMaxW}px`;
-    this.previewCanvas.style.height = `${previewH}px`;
+    this.previewCanvas.style.width = `${photoSize.widthPx}px`;
+    this.previewCanvas.style.height = `${photoSize.heightPx}px`;
   }
 
   render(): void {
@@ -344,7 +327,7 @@ export class PhotoEditor {
     const drawW = img.naturalWidth * drawScale;
     const drawH = img.naturalHeight * drawScale;
 
-    // Center image + apply offset (offset is in photoSize pixels, no DPR scaling needed)
+    // offset is already in photoSize space (1:1 with canvas)
     const drawX = (canvasW - drawW) / 2 + this.state.offsetX;
     const drawY = (canvasH - drawH) / 2 + this.state.offsetY;
 
@@ -567,14 +550,9 @@ export class PhotoEditor {
     const drawW = img.naturalWidth * drawScale;
     const drawH = img.naturalHeight * drawScale;
 
-    // Scale offset from display coords to actual output coords
-    const scaleFactorX = pw / this.displayWidth;
-    const scaleFactorY = ph / this.displayHeight;
-    const offsetX = this.state.offsetX * scaleFactorX;
-    const offsetY = this.state.offsetY * scaleFactorY;
-
-    const drawX = (pw - drawW) / 2 + offsetX;
-    const drawY = (ph - drawH) / 2 + offsetY;
+    // offset is already in photoSize space
+    const drawX = (pw - drawW) / 2 + this.state.offsetX;
+    const drawY = (ph - drawH) / 2 + this.state.offsetY;
 
     const filters: string[] = [];
     if (this.state.brightness !== 100) {
@@ -626,14 +604,10 @@ export class PhotoEditor {
     const drawW = img.naturalWidth * drawScale;
     const drawH = img.naturalHeight * drawScale;
 
-    // Map offset from display coords to target coords
-    const dpr = window.devicePixelRatio || 1;
-    const displayCanvasW = this.displayWidth * dpr;
-    const displayCanvasH = this.displayHeight * dpr;
-    const scaleFactorX = targetW / displayCanvasW;
-    const scaleFactorY = targetH / displayCanvasH;
-    const offsetX = this.state.offsetX * dpr * scaleFactorX;
-    const offsetY = this.state.offsetY * dpr * scaleFactorY;
+    // Convert offset from photoSize to target size
+    // (photoSize = displayWidth/Height after setup)
+    const offsetX = this.state.offsetX * (targetW / this.displayWidth);
+    const offsetY = this.state.offsetY * (targetH / this.displayHeight);
 
     const drawX = (targetW - drawW) / 2 + offsetX;
     const drawY = (targetH - drawH) / 2 + offsetY;
@@ -648,7 +622,7 @@ export class PhotoEditor {
 
     if (this.state.smooth > 0) {
       ctx.save();
-      ctx.filter = `blur(${Math.round(this.state.smooth * (targetW / displayCanvasW))}px)`;
+      ctx.filter = `blur(${Math.round(this.state.smooth * (targetW / this.displayWidth))}px)`;
       ctx.globalAlpha = 0.5;
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
       ctx.restore();
@@ -681,6 +655,7 @@ export class PhotoEditor {
 
     window.addEventListener('mousemove', (e) => {
       if (!this.isDragging) return;
+      // offsetX/Y stay in displayHeight space - screen pixels map 1:1
       const dx = e.clientX - this.dragStartX;
       const dy = e.clientY - this.dragStartY;
       this.state.offsetX = this.startOffsetX + dx;
@@ -709,6 +684,7 @@ export class PhotoEditor {
 
     window.addEventListener('touchmove', (e) => {
       if (!this.isDragging) return;
+      // offsetX/Y stay in displayHeight space - screen pixels map 1:1
       const touch = e.touches[0];
       const dx = touch.clientX - this.dragStartX;
       const dy = touch.clientY - this.dragStartY;
